@@ -133,7 +133,7 @@ describe("User", function() {
       var path = "/api/users/logout";
       var header = hawk.client.header(prefix + path, "GET", { credentials : hawkPairKey });
       server.inject({
-        headers : { Authorization : header.field, host : "localhost:3000" },
+        headers : { Authorization : header.field, host : prefix.split("//")[1] },
         url: path,
         method: "GET",
       }, function(response) {
@@ -146,7 +146,7 @@ describe("User", function() {
       var path = "/api/users/logout";
       var header = hawk.client.header(prefix + path, "GET", { credentials : hawkPairKey });
       server.inject({
-        headers : { Authorization : header.field, host : "localhost:3000" },
+        headers : { Authorization : header.field, host : prefix.split("//")[1] },
         url: path,
         method: "GET",
       }, function(response) {
@@ -183,7 +183,7 @@ describe("User", function() {
             var path = "/api/users/logout";
             var header = hawk.client.header(prefix + path, "GET", { credentials : expiredPairKey });
             server.inject({
-              headers : { Authorization : header.field, host : "localhost:3000" },
+              headers : { Authorization : header.field, host : prefix.split("//")[1] },
               url: path,
               method: "GET",
             }, function(response) {
@@ -223,7 +223,7 @@ describe("User", function() {
             var path = "/api/users/logout";
             var header = hawk.client.header(prefix + path, "GET", { credentials : expiredPairKey });
             server.inject({
-              headers : { Authorization : header.field, host : "localhost:3000" },
+              headers : { Authorization : header.field, host : prefix.split("//")[1] },
               url: path,
               method: "GET",
             }, function(response) {
