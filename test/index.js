@@ -1,5 +1,5 @@
+var server = require(__dirname + "/../../../lib/server");
 var mongoose = require("mongoose");
-var mockgoose = require("mockgoose");
 var server = require(__dirname + "/../../../lib/server");
 var model = require(__dirname + "/../index").model();
 var tokenModel = require(__dirname + "/../index").tokenModel();
@@ -10,12 +10,8 @@ var hat = require("hat");
 var _ = require("lodash");
 var uuid = require("uuid");
 var moment = require("moment");
-
-var User = mongoose.model("User");
-var Profile = mongoose.model("User");
-
-require("must");
 var async = require("async");
+require("must");
 
 var hawkPairKey = {
   algorithm : "sha256"
@@ -32,26 +28,50 @@ var prefix = "http://localhost:" + port;
 
 describe("User", function() {
   this.timeout(50000);
+  var allDone = false;
   before(function(done){
-    User.remove(function(err){
-      if (err) done(err);
-      var users;
-      fs.readFile(__dirname + "/users.json", "utf8", function(err, data) {
-        if (err) done(err);
-        users = JSON.parse(data);
-        async.each(users, function(user, cb) {
-          var newUser = new User(user);
-          newUser.save(function(err){
+    var afterConnect = function() {
+      async.series([
+        function(cb) {
+          model.remove({}, function(err){
+            if (err) return done(err);
+            cb(null);
+          });
+        },
+        function(cb) {
+          var users;
+          fs.readFile(__dirname + "/users.json", "utf8", function(err, data) {
             if (err) done(err);
-            cb()
-          })
-        }, function(err) {
-          if (err) done(err);
-          done();
-        });
-      });
+            users = JSON.parse(data);
+            async.each(users, function(user, cb) {
+              var newUser = new model(user);
+              newUser.save(function(err){
+                if (err) done(err);
+                cb(null)
+              })
+            }, function(err) {
+              if (err) done(err);
+              cb(null);
+            });
+          });
+        }
+      ], function(err) {
+        done();
+      })
+    }
+    mongoose.connection.on("connected", function() {
+      if (allDone) return;
+      afterConnect();
     });
+    if (!mongoose.connection.readyState) {
+      mongoose.connect("mongodb://localhost/test");
+    }
   })
+  after(function(done) {
+    allDone = true;
+    mongoose.disconnect();
+    done();
+  });
   describe("User auth", function() {
     this.timeout(50000);
     it("should logged in and get hawk pair key from /api/users/login", function(done) {
@@ -194,7 +214,7 @@ describe("User", function() {
         response.headers.token.must.be.exist();
         expiredPairKey.id = response.headers.token.split(" ")[0];
         expiredPairKey.key = response.headers.token.split(" ")[1];
-        User.findOne({
+        model.findOne({
           username : "auth4@users.com",
         }, function(err, result){
           if (err) return done(err);

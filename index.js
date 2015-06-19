@@ -29,7 +29,7 @@ var model = function() {
 
   if (registered) return m;
   var schema = {
-    username : {type : String, unique : true },
+    username : {type : String, unique : true},
     password : String,
     isActive : Boolean,
   }
