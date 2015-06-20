@@ -104,6 +104,7 @@ var User = function(server, options, next) {
   // Register hawk  
   server.register(require("hapi-auth-hawk"), function(err) {
     server.auth.strategy("default", "hawk", { getCredentialsFunc: getCredentials });
+    server.auth.default("default");
   });
 
   this.options = options || {};
@@ -115,6 +116,12 @@ User.prototype.registerEndPoints = function() {
   self.server.route({
     method: "POST",
     path: "/api/users/login",
+    // By default, all routes will automatically guarded by authentication.
+    // This route is the only way to get the hawk pair key.
+    // auth : false is used to bypass this authentication.
+    config : {
+      auth: false,
+    },
     // This /api/users/login is the only way to grab the pair key
     // Let the request pass here without auth
     handler: function(request, reply) {
@@ -124,9 +131,6 @@ User.prototype.registerEndPoints = function() {
   self.server.route({
     method: "GET",
     path: "/api/users/logout",
-    config : {
-      auth: "default",
-    },
     handler: function(request, reply) {
       self.logout(request, reply);
     },
@@ -273,6 +277,19 @@ User.prototype.deactivate = function(id, cb) {
     cb(err, result); 
   });
 }
+
+// This function is used in testing purpose only, to generate a ready-to-log-in user.
+var generateUser = function(user, cb) {
+  var newUser = model();
+  newUser.username = user.email;
+  newUser.isActive = true;
+  model().register(newUser, user.password, function(err, result) {
+    if (err) return cb(err);
+    cb();
+  })
+}
+
+exports.generateUser = generateUser;
 
 exports.register = function(server, options, next) {
   new User(server, options, next);
