@@ -5,6 +5,8 @@ var moment = require("moment");
 var _ = require("lodash");
 var uuid = require("uuid");
 var nodemailer = require("nodemailer");
+var faker = require("faker");
+var profileModel = require(__dirname + "/../../api/profiles/index").model();
 
 var schema = {
   username : Joi.string().email().required(),
@@ -65,24 +67,38 @@ var User = function(server, options, next) {
   
   var getCredentials = function(id, callback) {
     tokenModel().findOne({tokenId:id}, function(err, result) {
-      if (err || !result) return callback(false, null);
+      if (err) return callback(err);
+      if (!result) return callback({
+        error: "Unauthorized",
+        message: "Unknown credentials",
+        statusCode: 401
+      });
       model().findOne({_id: result.userId }, function(err, user) {
         if (user.isActive) {
           // Check expire time
           if (moment().isBefore(result.expire)) {
-            var credential = {
-              username : user.username,
-              userId : user._id,
-              key : result.key,
-              algorithm : "sha256"
-            }
-            // Renew expire time for each request.
-            result.expire = moment().add(1, "day").format();
-            result.save(function(err) {
-              if (err || !result) return callback(false, null);
-              return callback(null, credential);
+            profileModel
+              .findOne({userId : result.userId})
+              .lean()
+              .exec(function(err, profile){
+              var credentials = {
+                username : user.username,
+                userId : user._id,
+                profileId : profile._id,
+                key : result.key,
+                algorithm : "sha256"
+              }
+              // Renew expire time for each request.
+              result.expire = moment().add(1, "day").format();
+              result.save(function(err) {
+                if (err) return callback(err);
+                return callback(null, credentials);
+              });
+
             });
-          } else {
+
+         
+         } else {
             result.remove();
             return callback({
               error: "Unauthorized",
@@ -282,10 +298,23 @@ User.prototype.deactivate = function(id, cb) {
 var generateUser = function(user, cb) {
   var newUser = model();
   newUser.username = user.email;
-  newUser.isActive = true;
+  if (user.isActive == false) {
+    newUser.isActive = false;
+  } else {
+    newUser.isActive = true;
+  }
   model().register(newUser, user.password, function(err, result) {
     if (err) return cb(err);
-    cb();
+    profileModel.create({
+      fullName : faker.name.findName(),
+      email : user.email,
+      rule : "admin",
+      userId : result._id,
+      activationCode : uuid.v4(),
+    }, function(err, profile) {
+      if (err) return cb(err);
+      cb(null, profile);
+    });
   })
 }
 

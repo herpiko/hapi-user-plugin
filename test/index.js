@@ -11,6 +11,7 @@ var _ = require("lodash");
 var uuid = require("uuid");
 var moment = require("moment");
 var async = require("async");
+var generateUser = require(__dirname + "/../../../api/00-user-plugin/index").generateUser;
 require("must");
 
 var hawkPairKey = {
@@ -39,20 +40,47 @@ describe("User", function() {
           });
         },
         function(cb) {
-          var users;
-          fs.readFile(__dirname + "/users.json", "utf8", function(err, data) {
+          var user = {
+            email : "auth1@users.com",
+            password : "pass1",
+            isActive : true,
+          }
+          generateUser(user, function(err){
             if (err) done(err);
-            users = JSON.parse(data);
-            async.each(users, function(user, cb) {
-              var newUser = new model(user);
-              newUser.save(function(err){
-                if (err) done(err);
-                cb(null)
-              })
-            }, function(err) {
-              if (err) done(err);
-              cb(null);
-            });
+            cb();
+          });
+        },
+        function(cb) {
+          var user = {
+            email : "auth2@users.com",
+            password : "pass1",
+            isActive : true,
+          }
+          generateUser(user, function(err){
+            if (err) done(err);
+            cb();
+          });
+        },
+        function(cb) {
+          var user = {
+            email : "auth3@users.com",
+            password : "pass1",
+            isActive : false,
+          }
+          generateUser(user, function(err){
+            if (err) done(err);
+            cb();
+          });
+        },
+        function(cb) {
+          var user = {
+            email : "auth4@users.com",
+            password : "pass1",
+            isActive : true,
+          }
+          generateUser(user, function(err){
+            if (err) done(err);
+            cb();
           });
         }
       ], function(err) {
