@@ -67,7 +67,12 @@ var User = function(server, options, next) {
   
   var getCredentials = function(id, callback) {
     tokenModel().findOne({tokenId:id}, function(err, result) {
-      if (err || !result) return callback("Credentials was not found", null);
+      if (err) return callback(err);
+      if (!result) return callback({
+        error: "Unauthorized",
+        message: "Unknown credentials",
+        statusCode: 401
+      });
       model().findOne({_id: result.userId }, function(err, user) {
         if (user.isActive) {
           // Check expire time
