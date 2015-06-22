@@ -207,7 +207,7 @@ User.prototype.login = function(request, reply) {
       }).code(401);
     }
     profileModel
-      .findOne({userId : result.userId})
+      .findOne({userId : user._id})
       .lean()
       .exec(function(err, profile){
       if (err) return reply(err);
