@@ -114,6 +114,7 @@ describe("User", function() {
         response.result.must.be.an.object();
         response.result.success.must.equal(true);
         response.headers.token.must.be.exist();
+        response.headers.currentUser.must.be.exist();
         hawkPairKey.id = response.headers.token.split(" ")[0];
         hawkPairKey.key = response.headers.token.split(" ")[1];
         done();
