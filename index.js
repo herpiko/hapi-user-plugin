@@ -222,7 +222,7 @@ User.prototype.login = function(request, reply) {
         var response = reply({success:true})
           .type("application/json")
           .header("token", result.tokenId + " " + result.key)
-          .header("currentUser", profile._id)
+          .header("current_user", profile._id)
           .hold();
         response.send();
       })
