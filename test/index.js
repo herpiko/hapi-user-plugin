@@ -12,6 +12,7 @@ var uuid = require("uuid");
 var moment = require("moment");
 var async = require("async");
 var generateUser = require(__dirname + "/../../../api/00-user-plugin/index").generateUser;
+var profileModel = require(__dirname + "/../../../api/profiles/index").model();
 require("must");
 
 var hawkPairKey = {
@@ -35,6 +36,12 @@ describe("User", function() {
       async.series([
         function(cb) {
           model.remove({}, function(err){
+            if (err) return done(err);
+            cb(null);
+          });
+        },
+        function(cb) {
+          profileModel.remove({}, function(err){
             if (err) return done(err);
             cb(null);
           });
@@ -103,21 +110,26 @@ describe("User", function() {
   describe("User auth", function() {
     this.timeout(50000);
     it("should logged in and get hawk pair key from /api/users/login", function(done) {
+      var user = {
+        email : "auth1@users.com",
+        password : "pass1"
+      }
       server.inject({
         method: "POST",
         url: "/api/users/login",
-        payload : {
-          email : "auth1@users.com",
-          password : "pass1"
-        },
+        payload : user
       }, function(response) {
-        response.result.must.be.an.object();
-        response.result.success.must.equal(true);
-        response.headers.token.must.be.exist();
-        response.headers.currentUser.must.be.exist();
-        hawkPairKey.id = response.headers.token.split(" ")[0];
-        hawkPairKey.key = response.headers.token.split(" ")[1];
-        done();
+        profileModel.findOne({email:user.email}, function(err, profile){
+          if (err) return done(err);
+          response.result.must.be.an.object();
+          response.result.success.must.equal(true);
+          response.headers.token.must.be.exist();
+          response.headers.current_user.must.exist();
+          response.headers.current_user.toString().must.equal(profile._id.toString());
+          hawkPairKey.id = response.headers.token.split(" ")[0];
+          hawkPairKey.key = response.headers.token.split(" ")[1];
+          done();
+        })
       });
     });
     it("should failed to login with invalid credentials from /api/users/login", function(done) {
