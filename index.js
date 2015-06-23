@@ -206,17 +206,27 @@ User.prototype.login = function(request, reply) {
         statusCode: 401
       }).code(401);
     }
-    // Generate key pair for Hawk Auth
-    tokenModel().create({
-      userId : user._id,
-      tokenId : uuid.v4(),
-      key : uuid.v4(),
-      expire : moment().add(1, "day").format()
-    }, function(err, result) {
+    profileModel
+      .findOne({userId : user._id})
+      .lean()
+      .exec(function(err, profile){
       if (err) return reply(err);
-      var response = reply({success:true}).type("application/json").header("token", result.tokenId + " " + result.key).hold();
-      response.send();
-    })
+      // Generate key pair for Hawk Auth
+      tokenModel().create({
+        userId : user._id,
+        tokenId : uuid.v4(),
+        key : uuid.v4(),
+        expire : moment().add(1, "day").format()
+      }, function(err, result) {
+        if (err) return reply(err);
+        var response = reply({success:true})
+          .type("application/json")
+          .header("token", result.tokenId + " " + result.key)
+          .header("currentUser", profile._id)
+          .hold();
+        response.send();
+      })
+    });
   });
 }
 
