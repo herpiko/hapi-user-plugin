@@ -29,7 +29,7 @@ if (process.env.PORT) port = process.env.PORT;
 var prefix = "http://localhost:" + port;
 
 describe("User", function() {
-  this.timeout(50000);
+  this.timeout(300000);
   var allDone = false;
   before(function(done){
     var afterConnect = function() {
