@@ -273,14 +273,18 @@ User.prototype.create = function(request, cb) {
   })
 }
 
-User.prototype.setPassword = function(id, password, cb) {
+User.prototype.setPassword = function(id, currentPassword, password, cb) {
   var self = this;
-  model().findOne({_id:id}, function(err, user) {
-    if (err) return cb(err, user);
-    user.setPassword(password, function(err) {
-      if (err) return cb(err, null);
-      user.save(function(err, result) {
-        cb(err, result);
+  model().findOne({_id:id}, function(err, result) {
+    if (err) return cb(err);
+    model().authenticate()(result.username, currentPassword, function(err, user) {
+      if (err) return cb(err);
+      if (!user) return cb({success:false});
+      user.setPassword(password, function(err) {
+        if (err) return cb(err, null);
+        user.save(function(err, result) {
+          cb(err, result);
+        })
       })
     })
   });
