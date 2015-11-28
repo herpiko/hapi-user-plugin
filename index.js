@@ -221,8 +221,8 @@ User.prototype.login = function(request, reply) {
         if (err) return reply(err);
         var response = reply({success:true})
           .type("application/json")
-          .header("token", result.tokenId + " " + result.key)
-          .header("current_user", profile._id)
+          .header("X-Token", result.tokenId + " " + result.key)
+          .header("X-Current-User", profile._id)
           .hold();
         response.send();
       })
