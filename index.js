@@ -117,9 +117,10 @@ var User = function(server, options, next) {
     })
   }
 
+console.log(options);
   // Register hawk  
   server.register(require("hapi-auth-hawk"), function(err) {
-    server.auth.strategy("default", "hawk", { getCredentialsFunc: getCredentials });
+    server.auth.strategy("default", "hawk", { getCredentialsFunc: getCredentials, hawk: { port: options.port || 80} });
     server.auth.default("default");
   });
 
