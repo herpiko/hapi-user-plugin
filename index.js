@@ -72,7 +72,7 @@ var User = function(server, options, next) {
         error: "Unauthorized",
         message: "Unknown credentials",
         statusCode: 401
-      });
+      }).code(401);
       model().findOne({_id: result.userId }, function(err, user) {
         if (user.isActive) {
           // Check expire time
