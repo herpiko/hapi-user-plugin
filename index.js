@@ -76,7 +76,11 @@ var User = function(server, options, next) {
           result = inMemoryTokens[id];
         }
         if (!result) {
-          return cb(new Error("Unknown credentials"));
+          return cb({
+            error: "Unauthorized",
+            message: "Unknown credentials",
+            statusCode: 401
+          });
         }
         return cb(null, result);
       } else {
@@ -92,6 +96,9 @@ var User = function(server, options, next) {
       }
     }
     checkToken(id, function(err, result){
+      if (err) {
+        return callback(err);
+      }
       model().findOne({_id: result.userId }, function(err, user) {
         if (user.isActive) {
           // Check expire time
