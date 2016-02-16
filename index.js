@@ -1,5 +1,6 @@
 var mongoose = require("mongoose");
 var Joi = require("joi");
+var Boom = require('boom');
 var passportLocalMongoose = require("passport-local-mongoose");
 var moment = require("moment");
 var _ = require("lodash");
@@ -7,7 +8,6 @@ var uuid = require("uuid");
 var nodemailer = require("nodemailer");
 var faker = require("faker");
 var profileModel = require(__dirname + "/../../api/profiles/index").model();
-var inMemoryTokens = {};
 var inMemoryKeys = {};
 
 var schema = {
@@ -20,6 +20,27 @@ var hawkTokenSchema = {
   tokenId : Joi.string().required(),
   key : Joi.string().required(),
   date : Joi.date().required()
+}
+
+global.inMemoryTokens = {
+  tokens: {},
+  get: function(id) {
+    return this.tokens[id];
+  },
+  set: function(id, val) {
+    this.tokens[id] = val;
+  },
+  del: function(id) {
+    delete this.tokens[id];
+  },
+  exists: function(id) {
+    var r = typeof this.tokens[id] !== 'undefined';
+    console.log(id, r);
+    for (var i in this.tokens) {
+      console.log('>', this.tokens[i]);
+    }
+    return r;
+  }
 }
 
 var model = function() {
@@ -67,21 +88,24 @@ var tokenModel = function() {
 var User = function(server, options, next) {
   this.server = server;
   this.options = options || {};
-  
+
   var getCredentials = function(id, callback) {
     var checkToken = function(id, cb){
       if (options.authInMemory) {
-        var result = false;
-        if (inMemoryTokens[id]) {
-          result = inMemoryTokens[id];
+        var result;
+
+        if (!global.inMemoryTokens.exists(id)) {
+          if (typeof(result) === 'undefined') {
+            console.log(401);
+            return cb(new Boom.unauthorized({
+              error: "Unauthorized",
+              message: "Unknown credentials #1",
+              statusCode: 401
+            }));
+          }
         }
-        if (!result) {
-          return cb({
-            error: "Unauthorized",
-            message: "Unknown credentials",
-            statusCode: 401
-          });
-        }
+        result = global.inMemoryTokens.get(id);
+          console.log(200);
         return cb(null, result);
       } else {
         tokenModel().findOne({tokenId:id}, function(err, result) {
@@ -117,8 +141,8 @@ var User = function(server, options, next) {
               // Renew expire time for each request.
               result.expire = moment().add(1, "day").format();
               if (options.authInMemory) {
-                if (inMemoryTokens[result.tokenId]) {
-                  inMemoryTokens[result.tokenId] = result;
+                if (global.inMemoryTokens.exists(result.tokenId)) {
+                  global.inMemoryTokens.set(result.tokenId, result);
                 }
                 if (inMemoryKeys[result.key]) {
                   inMemoryKeys[result.key] = result;
@@ -132,8 +156,8 @@ var User = function(server, options, next) {
             });
          } else {
             if (options.authInMemory) {
-              if (inMemoryTokens[result.tokenId]) {
-                delete(inMemoryTokens[result.tokenId]); 
+              if (global.inMemoryTokens.exists(result.tokenId)) {
+                global.inMemoryTokens.del(result.tokenId);
               }
               if (inMemoryKeys[result.key]) {
                 delete(inMemoryKeys[result.key]);
@@ -158,7 +182,7 @@ var User = function(server, options, next) {
     });
   }
   console.log(options);
-  // Register hawk  
+  // Register hawk
   server.register(require("hapi-auth-hawk"), function(err) {
     server.auth.strategy("default", "hawk", { getCredentialsFunc: getCredentials, hawk: { port: options.port || 80} });
     server.auth.default("default");
@@ -221,7 +245,7 @@ User.prototype.tokenModel = function() {
   * If login attemp is succeeded, the server return a token in header.
   * This token contains an id and a key which separated by a space character.
   * In front-end side, they should be used to generate Hawk MAC which needed for next authorized request.
-  * 
+  *
   * More about Hawk Auth : https://github.com/hueniverse/hawk
   *
 **/
@@ -229,8 +253,8 @@ User.prototype.tokenModel = function() {
 User.prototype.login = function(request, reply) {
   var self = this;
   model().authenticate()(
-    request.payload.email, 
-    request.payload.password, 
+    request.payload.email,
+    request.payload.password,
   function(err, user) {
     if (err) return reply(err);
     if (!user) {
@@ -260,7 +284,8 @@ User.prototype.login = function(request, reply) {
           key : uuid.v4(),
           expire : moment().add(1, "day").format()
         }
-        inMemoryTokens[result.tokenId] = result;
+        console.log('set');
+        global.inMemoryTokens.set(result.tokenId, result);
         inMemoryKeys[result.key] = result;
         var response = reply({success:true})
           .type("application/json")
@@ -295,7 +320,7 @@ User.prototype.login = function(request, reply) {
   *
   * @apiSuccess {Object} result Result object
   * @apiSuccess {Number} result.success Boolean state, should true
-  * 
+  *
   * @apiError unauthorized {Object} result Result object
   * @apiError unauthorized {Object} result.statusCode 401
   * @apiError unauthorized {Object} result.error Error code
@@ -311,8 +336,8 @@ User.prototype.logout = function(request, reply) {
     if (inMemoryKeys[request.auth.credentials.key]) {
       var tokenId = inMemoryKeys[request.auth.credentials.key];
       delete(inMemoryKeys[request.auth.credentials.key]);
-      if (inMemoryTokens[tokenId]) {
-        delete(inMemoryTokens[tokenId]);
+      if (global.inMemoryTokens.exists(tokenId)) {
+        global.inMemoryTokens.del(tokenId);
       }
     }
     return reply({success: true}).type("application/json").statusCode = 200;
@@ -361,19 +386,19 @@ User.prototype.setPassword = function(id, currentPassword, password, cb) {
 
 User.prototype.remove = function(id, cb) {
   model().remove({_id:id}, function(err, result) {
-    cb(err, result); 
+    cb(err, result);
   });
 }
 
 User.prototype.activate = function(id, cb) {
   model().findOneAndUpdate({_id:id}, {isActive: true}, function(err, result) {
-    cb(err, result); 
+    cb(err, result);
   });
 }
 
 User.prototype.deactivate = function(id, cb) {
   model().findOneAndUpdate({_id:id}, {isActive: false}, function(err, result) {
-    cb(err, result); 
+    cb(err, result);
   });
 }
 
