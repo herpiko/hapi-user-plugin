@@ -384,6 +384,20 @@ User.prototype.setPassword = function(id, currentPassword, password, cb) {
   });
 }
 
+User.prototype.forceSetPassword = function(id, password, cb) {
+  var self = this;
+  model().findOne({_id:id}, function(err, user) {
+    if (err) return cb(err);
+    if (!user) return cb({success:false});
+    user.setPassword(password, function(err) {
+      if (err) return cb(err, null);
+      user.save(function(err, result) {
+        cb(err, result);
+      })
+    })
+  });
+}
+
 User.prototype.remove = function(id, cb) {
   model().remove({_id:id}, function(err, result) {
     cb(err, result);
